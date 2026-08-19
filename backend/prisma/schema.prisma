@@ -1,0 +1,338 @@
+// Nayi Disha (WasteLoop) — Prisma schema
+// Grouped by the phases described in dustbin_arch.md:
+//   Identity/Rewards -> Bins/Telemetry -> Waste-loop chain (scan/token/throw) -> Routing
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity & rewards
+// ---------------------------------------------------------------------------
+
+enum Role {
+  CITIZEN
+  ADMIN
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String
+  name            String
+  role            Role     @default(CITIZEN)
+  wasteCoinBalance Int     @default(0)
+  currentStreak   Int      @default(0)
+  longestStreak   Int      @default(0)
+  lastThrowDate   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  wasteScans          WasteScan[]
+  disposalTokens      DisposalToken[]
+  rewardTransactions  RewardTransaction[]
+  redemptions         Redemption[]
+  badges              UserBadge[]
+
+  @@index([role])
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String
+  iconEmoji   String   @default("🏅")
+  createdAt   DateTime @default(now())
+
+  userBadges UserBadge[]
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+}
+
+enum TransactionType {
+  EARN_PENDING
+  EARN_RELEASED
+  BONUS
+  REDEEM
+  ADJUSTMENT
+}
+
+model RewardTransaction {
+  id             String          @id @default(cuid())
+  userId         String
+  type           TransactionType
+  amount         Int
+  balanceAfter   Int
+  description    String
+  throwEventId   String?
+  createdAt      DateTime        @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  throwEvent ThrowEvent? @relation(fields: [throwEventId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+enum RedemptionStatus {
+  PENDING
+  FULFILLED
+  CANCELLED
+}
+
+model RedemptionOption {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  title       String
+  description String
+  costPoints  Int
+  provider    String // e.g. "BSES", "DMRC"
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  redemptions Redemption[]
+}
+
+model Redemption {
+  id                String           @id @default(cuid())
+  userId            String
+  redemptionOptionId String
+  pointsSpent       Int
+  status            RedemptionStatus @default(PENDING)
+  createdAt         DateTime         @default(now())
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redemptionOption RedemptionOption @relation(fields: [redemptionOptionId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Bins & telemetry
+// ---------------------------------------------------------------------------
+
+model Ward {
+  id   String @id @default(cuid())
+  name String
+  code String @unique
+
+  bins Bin[]
+}
+
+enum BinStatus {
+  ACTIVE
+  MAINTENANCE
+  OFFLINE
+  FULL
+}
+
+model Bin {
+  id                  String    @id @default(cuid())
+  code                String    @unique // fixed QR payload printed on the bin
+  label               String
+  latitude            Float
+  longitude           Float
+  capacityLiters      Int       @default(240)
+  currentFillPercent  Float     @default(0)
+  currentWeightKg     Float     @default(0)
+  status              BinStatus @default(ACTIVE)
+  wardId              String?
+  deviceApiKey        String    @unique @default(cuid()) // used by real/simulated devices to auth telemetry POSTs
+  lastTelemetryAt     DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  ward         Ward?            @relation(fields: [wardId], references: [id])
+  sensorLogs   SensorLog[]
+  cameraEvents BinCameraEvent[]
+  throwEvents  ThrowEvent[]
+  routeStops   RouteStop[]
+
+  @@index([wardId])
+  @@index([status])
+}
+
+enum SensorSource {
+  SIMULATED
+  DEVICE
+}
+
+model SensorLog {
+  id              String       @id @default(cuid())
+  binId           String
+  fillPercent     Float
+  weightKg        Float
+  lidEvent        Boolean      @default(false)
+  motionDetected  Boolean      @default(false)
+  batteryPercent  Float?
+  recordedAt      DateTime
+  receivedAt      DateTime     @default(now())
+  source          SensorSource @default(SIMULATED)
+
+  bin          Bin              @relation(fields: [binId], references: [id], onDelete: Cascade)
+  cameraEvents BinCameraEvent[]
+
+  @@index([binId, recordedAt])
+}
+
+model BinCameraEvent {
+  id                        String   @id @default(cuid())
+  binId                     String
+  sensorLogId               String?
+  imageUrl                  String
+  segregationQualityScore   Float?
+  contaminationDetected     Boolean  @default(false)
+  hazardousDetected         Boolean  @default(false)
+  aiRawResult                Json?
+  createdAt                 DateTime @default(now())
+
+  bin       Bin        @relation(fields: [binId], references: [id], onDelete: Cascade)
+  sensorLog SensorLog? @relation(fields: [sensorLogId], references: [id])
+
+  @@index([binId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Waste-loop chain: scan -> token -> triple-lock -> throw -> reward
+// ---------------------------------------------------------------------------
+
+enum WasteClassification {
+  RECYCLABLE
+  BIODEGRADABLE
+  HAZARDOUS
+  REJECTED
+}
+
+enum ScanStatus {
+  PENDING_TOKEN
+  TOKEN_ISSUED
+  EXPIRED
+  CONSUMED
+}
+
+model WasteScan {
+  id               String              @id @default(cuid())
+  userId           String
+  imageUrls        String[]
+  aiClassification WasteClassification
+  aiConfidence     Float
+  pendingPoints    Int
+  status           ScanStatus          @default(PENDING_TOKEN)
+  createdAt        DateTime            @default(now())
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token DisposalToken?
+
+  @@index([userId, createdAt])
+}
+
+enum TokenStatus {
+  ACTIVE
+  VERIFIED
+  EXPIRED
+  FAILED
+}
+
+model DisposalToken {
+  id         String      @id @default(cuid())
+  scanId     String      @unique
+  userId     String
+  code       String      @unique // QR payload
+  status     TokenStatus @default(ACTIVE)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime    @default(now())
+
+  scan       WasteScan   @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  throwEvent ThrowEvent?
+
+  @@index([userId, status])
+}
+
+enum VerificationMethod {
+  SELF_PHOTO
+  BIN_CAMERA
+  NFC_TAG
+}
+
+model ThrowEvent {
+  id                  String              @id @default(cuid())
+  tokenId             String              @unique
+  binId               String
+  verificationMethod  VerificationMethod
+  gpsLat              Float
+  gpsLng              Float
+  qrMatched           Boolean
+  tokenValidAtCheck   Boolean
+  throwVerified       Boolean
+  pointsAwarded       Int?
+  bonusPercent        Float?
+  evidenceUrl         String?
+  createdAt           DateTime            @default(now())
+
+  token               DisposalToken       @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  bin                 Bin                 @relation(fields: [binId], references: [id])
+  rewardTransactions  RewardTransaction[]
+
+  @@index([binId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Route optimization
+// ---------------------------------------------------------------------------
+
+enum RouteStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Route {
+  id                    String      @id @default(cuid())
+  status                RouteStatus @default(PLANNED)
+  totalDistanceMeters   Float
+  totalDurationSeconds  Float
+  algorithm             String // e.g. "nearest-neighbor+2opt/osrm-table"
+  geometryGeoJson       Json // [lng, lat][] road-following polyline from OSRM, for map rendering
+  generatedAt           DateTime    @default(now())
+
+  stops RouteStop[]
+}
+
+enum RouteStopStatus {
+  PENDING
+  VISITED
+  SKIPPED
+}
+
+model RouteStop {
+  id                    String          @id @default(cuid())
+  routeId               String
+  binId                 String
+  sequenceOrder         Int
+  distanceFromPrevMeters  Float
+  durationFromPrevSeconds Float
+  status                RouteStopStatus @default(PENDING)
+
+  route Route @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  bin   Bin   @relation(fields: [binId], references: [id])
+
+  @@unique([routeId, sequenceOrder])
+  @@index([binId])
+}
