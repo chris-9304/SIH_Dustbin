@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+npm-debug.log*
+
+# OSRM data (large binary files, fetched by infra/osrm/scripts)
+infra/osrm/data/*
+!infra/osrm/data/.gitkeep
+
+# Editor/OS
+.DS_Store
+*.Zone.Identifier

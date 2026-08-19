@@ -1,0 +1,81 @@
+@import "leaflet/dist/leaflet.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-brand-50 text-slate-800 font-sans antialiased;
+    background-image:
+      radial-gradient(circle at 8% 0%, rgba(255, 159, 61, 0.08), transparent 32%),
+      radial-gradient(circle at 100% 12%, rgba(65, 136, 176, 0.1), transparent 38%),
+      linear-gradient(180deg, #f1faf7 0%, #f6fbfa 40%, #f1f8fc 100%);
+    background-attachment: fixed;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display text-brand-900;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white/90 backdrop-blur-sm rounded-2xl border border-brand-100 shadow-soft p-5;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-600 px-5 py-2.5
+      text-sm font-semibold text-white shadow-soft transition hover:bg-brand-700
+      disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-600;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full border border-brand-200 bg-white
+      px-5 py-2.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-50
+      disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-saffron-500 px-5 py-2.5
+      text-sm font-semibold text-white shadow-soft transition hover:bg-saffron-600
+      disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium
+      text-slate-500 transition hover:bg-slate-100 hover:text-slate-800;
+  }
+
+  .field-input {
+    @apply w-full rounded-xl border border-brand-100 bg-white px-3.5 py-2.5 text-sm text-slate-800
+      outline-none transition placeholder:text-slate-400
+      focus:border-brand-400 focus:ring-4 focus:ring-brand-100;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-medium text-slate-600;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+
+  .tricolor-rule {
+    background: linear-gradient(90deg, #f5891f 0%, #f5891f 33%, #ffffff 33%, #ffffff 66%, #3aa389 66%, #3aa389 100%);
+  }
+
+  .page-title {
+    @apply text-2xl font-display font-semibold text-brand-900;
+  }
+
+  .page-subtitle {
+    @apply text-sm text-slate-500 mt-1;
+  }
+
+  .empty-state {
+    @apply block rounded-xl border border-dashed border-brand-200 bg-brand-50/60 px-6 py-10
+      text-center text-sm leading-relaxed text-slate-500;
+  }
+}
