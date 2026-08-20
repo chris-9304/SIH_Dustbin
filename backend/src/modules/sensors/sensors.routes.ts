@@ -1,5 +1,10 @@
 import type { FastifyInstance } from "fastify";
-import { cameraEventSchema, telemetrySchema } from "./sensors.schema.js";
+import {
+  cameraEventQuerySchema,
+  cameraEventSchema,
+  sensorLogQuerySchema,
+  telemetrySchema,
+} from "./sensors.schema.js";
 import {
   getRecentCameraEvents,
   getRecentSensorLogs,
@@ -31,14 +36,15 @@ export async function sensorRoutes(app: FastifyInstance): Promise<void> {
 
   app.get("/:binId/logs", { preHandler: requireAuth }, async (request, reply) => {
     const { binId } = request.params as { binId: string };
-    const { limit } = request.query as { limit?: string };
-    const logs = await getRecentSensorLogs(binId, limit ? Number(limit) : undefined);
+    const { limit } = sensorLogQuerySchema.parse(request.query);
+    const logs = await getRecentSensorLogs(binId, limit);
     reply.send({ logs });
   });
 
   app.get("/:binId/camera-events", { preHandler: requireAuth }, async (request, reply) => {
     const { binId } = request.params as { binId: string };
-    const events = await getRecentCameraEvents(binId);
+    const { limit } = cameraEventQuerySchema.parse(request.query);
+    const events = await getRecentCameraEvents(binId, limit);
     reply.send({ cameraEvents: events });
   });
 }
