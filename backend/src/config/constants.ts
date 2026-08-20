@@ -20,3 +20,12 @@ export const GPS_PROXIMITY_RADIUS_METERS = 100;
 export const SENSOR_SIGNIFICANT_FILL_DELTA_PERCENT = 10;
 
 export const BIN_CAMERA_TRIGGER_FILL_PERCENT = 80;
+
+/** A bin at or above this fill level transitions to FULL status (unless MAINTENANCE/OFFLINE). */
+export const BIN_FULL_THRESHOLD_PERCENT = 95;
+
+/**
+ * How recent a device-authenticated BinCameraEvent for a bin must be to corroborate a
+ * BIN_CAMERA or NFC_TAG throw verification. See throws.service.ts.
+ */
+export const THROW_CAMERA_CORROBORATION_WINDOW_MINUTES = 5;
