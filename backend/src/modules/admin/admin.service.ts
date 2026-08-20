@@ -1,4 +1,5 @@
 import { prisma } from "../../lib/prisma.js";
+import { env } from "../../config/env.js";
 
 export async function wardSummary() {
   const wards = await prisma.ward.findMany({ include: { bins: true } });
@@ -11,7 +12,9 @@ export async function wardSummary() {
       wardCode: ward.code,
       binCount: ward.bins.length,
       averageFillPercent: Math.round(avgFill * 10) / 10,
-      binsNeedingCollection: ward.bins.filter((b) => b.currentFillPercent >= 70).length,
+      binsNeedingCollection: ward.bins.filter(
+        (b) => b.currentFillPercent >= env.ROUTE_FILL_THRESHOLD_PERCENT,
+      ).length,
     };
   });
 }
