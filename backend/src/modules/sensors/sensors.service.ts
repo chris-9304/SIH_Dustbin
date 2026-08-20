@@ -2,10 +2,22 @@ import { prisma } from "../../lib/prisma.js";
 import { NotFoundError } from "../../lib/errors.js";
 import {
   BIN_CAMERA_TRIGGER_FILL_PERCENT,
+  BIN_FULL_THRESHOLD_PERCENT,
   SENSOR_SIGNIFICANT_FILL_DELTA_PERCENT,
 } from "../../config/constants.js";
 import type { CameraEventInput, TelemetryInput } from "./sensors.schema.js";
-import type { SensorSource } from "@prisma/client";
+import type { BinStatus, SensorSource } from "@prisma/client";
+
+/**
+ * MAINTENANCE and OFFLINE are set by an admin and stay in effect until an admin clears them —
+ * telemetry must never auto-transition a bin out of those states, or an out-of-service bin
+ * gets pulled back into route optimization's ACTIVE/FULL candidate set.
+ */
+function nextBinStatus(current: BinStatus, fillPercent: number): BinStatus {
+  if (current === "MAINTENANCE" || current === "OFFLINE") return current;
+  if (fillPercent >= BIN_FULL_THRESHOLD_PERCENT) return "FULL";
+  return current === "FULL" ? "ACTIVE" : current;
+}
 
 /**
  * Ingests one telemetry reading for a bin. This is the single code path used by both a future
@@ -38,8 +50,7 @@ export async function ingestTelemetry(binId: string, input: TelemetryInput, sour
     },
   });
 
-  const nextStatus =
-    input.fillPercent >= 95 ? "FULL" : bin.status === "FULL" ? "ACTIVE" : bin.status;
+  const nextStatus = nextBinStatus(bin.status, input.fillPercent);
 
   const updatedBin = await prisma.bin.update({
     where: { id: binId },
