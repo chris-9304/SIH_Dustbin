@@ -42,14 +42,24 @@ export async function redeem(userId: string, redemptionOptionId: string) {
   const option = await prisma.redemptionOption.findUnique({ where: { id: redemptionOptionId } });
   if (!option || !option.active) throw new NotFoundError("Redemption option not found");
 
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  if (user.wasteCoinBalance < option.costPoints) {
-    throw new ValidationError("Insufficient WasteCoin balance for this redemption");
-  }
-
-  const newBalance = user.wasteCoinBalance - option.costPoints;
-
+  // The balance check and debit happen atomically inside the transaction, via a guarded
+  // updateMany, so two concurrent redemptions cannot both succeed against the same balance
+  // (see docs/hardening-tasks.md 1.2). balanceAfter is read back post-debit, never computed
+  // from a pre-transaction snapshot.
   return prisma.$transaction(async (tx) => {
+    const debited = await tx.user.updateMany({
+      where: { id: userId, wasteCoinBalance: { gte: option.costPoints } },
+      data: { wasteCoinBalance: { decrement: option.costPoints } },
+    });
+    if (debited.count === 0) {
+      throw new ValidationError("Insufficient WasteCoin balance for this redemption");
+    }
+
+    const updatedUser = await tx.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { wasteCoinBalance: true },
+    });
+
     const redemption = await tx.redemption.create({
       data: { userId, redemptionOptionId, pointsSpent: option.costPoints, status: "FULFILLED" },
     });
@@ -58,11 +68,10 @@ export async function redeem(userId: string, redemptionOptionId: string) {
         userId,
         type: "REDEEM",
         amount: -option.costPoints,
-        balanceAfter: newBalance,
+        balanceAfter: updatedUser.wasteCoinBalance,
         description: `Redeemed: ${option.title}`,
       },
     });
-    await tx.user.update({ where: { id: userId }, data: { wasteCoinBalance: newBalance } });
     return redemption;
   });
 }

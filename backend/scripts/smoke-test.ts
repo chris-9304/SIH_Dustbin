@@ -23,7 +23,8 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 async function api(path: string, options: RequestInit & { token?: string } = {}) {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {};
+  if (options.body !== undefined) headers["Content-Type"] = "application/json";
   if (options.token) headers.Authorization = `Bearer ${options.token}`;
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
   const body: any = await res.json().catch(() => ({}));

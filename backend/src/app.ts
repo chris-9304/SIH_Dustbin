@@ -16,25 +16,6 @@ import { adminRoutes } from "./modules/admin/admin.routes.js";
 export async function buildApp() {
   const app = Fastify({ loggerInstance: logger });
 
-  // Many POST endpoints (token issuance, admin actions, route optimize) take no/optional body.
-  // Clients that still send `Content-Type: application/json` with an empty body would otherwise
-  // hit Fastify's default "body cannot be empty" error, so treat empty as `{}`.
-  app.addContentTypeParser(
-    "application/json",
-    { parseAs: "string" },
-    (_req, body, done) => {
-      if (!body || (body as string).length === 0) {
-        done(null, {});
-        return;
-      }
-      try {
-        done(null, JSON.parse(body as string));
-      } catch (err) {
-        done(err as Error, undefined);
-      }
-    },
-  );
-
   await app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
   await app.register(jwt, { secret: env.JWT_SECRET, sign: { expiresIn: env.JWT_EXPIRES_IN } });
 

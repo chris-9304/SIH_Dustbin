@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "ThrowTrustTier" AS ENUM ('UNCORROBORATED', 'DEVICE_CORROBORATED');
+
+-- AlterTable
+ALTER TABLE "ThrowEvent" ADD COLUMN "trustTier" "ThrowTrustTier" NOT NULL DEFAULT 'UNCORROBORATED';

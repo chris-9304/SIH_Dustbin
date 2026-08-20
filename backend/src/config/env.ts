@@ -16,6 +16,7 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
   OSRM_BASE_URL: z.string().default("https://router.project-osrm.org"),
   ROUTE_FILL_THRESHOLD_PERCENT: z.coerce.number().min(0).max(100).default(70),
+  APP_TIMEZONE: z.string().default("Asia/Kolkata"),
   SIMULATION_ENABLED: z
     .string()
     .default("false")

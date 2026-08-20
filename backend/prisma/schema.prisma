@@ -271,6 +271,11 @@ enum VerificationMethod {
   NFC_TAG
 }
 
+enum ThrowTrustTier {
+  UNCORROBORATED
+  DEVICE_CORROBORATED
+}
+
 model ThrowEvent {
   id                  String              @id @default(cuid())
   tokenId             String              @unique
@@ -281,6 +286,7 @@ model ThrowEvent {
   qrMatched           Boolean
   tokenValidAtCheck   Boolean
   throwVerified       Boolean
+  trustTier           ThrowTrustTier      @default(UNCORROBORATED)
   pointsAwarded       Int?
   bonusPercent        Float?
   evidenceUrl         String?

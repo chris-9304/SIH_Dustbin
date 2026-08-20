@@ -13,3 +13,4 @@ infra/osrm/data/*
 # Editor/OS
 .DS_Store
 *.Zone.Identifier
+*.tsbuildinfo

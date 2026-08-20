@@ -18,3 +18,13 @@ export const cameraEventSchema = z.object({
   hazardousDetected: z.boolean().default(false),
 });
 export type CameraEventInput = z.infer<typeof cameraEventSchema>;
+
+export const sensorLogQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+export type SensorLogQuery = z.infer<typeof sensorLogQuerySchema>;
+
+export const cameraEventQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(20),
+});
+export type CameraEventQuery = z.infer<typeof cameraEventQuerySchema>;
